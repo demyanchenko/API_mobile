@@ -16,10 +16,11 @@ struct Product: Codable {
 
 
 class ProductViewModel: ObservableObject {
-    @Published var products: [Product] = []
+    @Published var products = [Product]()
+    let url = "http://192.168.68.105:8000/products"
     
     func fetchData() async {
-        guard let url = URL(string: "http://192.168.68.105:8000/products") else {
+        guard let url = URL(string: url) else {
             print("This URL is not working!")
             return
         }
@@ -37,7 +38,7 @@ class ProductViewModel: ObservableObject {
     
     // Call API and update products array
     func fetchProducts() {
-        guard let url = URL(string: "http://192.168.68.105:8000/products") else { return }
+        guard let url = URL(string: url) else { return }
         
         URLSession.shared.dataTask(with: url) { data, response, error in
             if let data = data {

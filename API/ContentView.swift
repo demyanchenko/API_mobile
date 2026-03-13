@@ -12,11 +12,11 @@ import SwiftData
 import Foundation
 
 struct ContentView: View {
-//    @StateObject var product = ProductViewModel()
-    @State private var products = [Product]()
+    @StateObject private var productViewModel = ProductViewModel()  // Вариант с менеджером fetch
+    @State private var products = [Product]()   // вариант с встроенным fetch
     
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+//    @Environment(\.modelContext) private var modelContext
+//    @Query private var items: [Item]
     private var students: [Student]?
 
     var body: some View {
@@ -24,6 +24,21 @@ struct ContentView: View {
         
         NavigationSplitView {
             List {
+                ForEach(productViewModel.products, id: \.title) { product in
+                    NavigationLink {
+                        Text("\(product.title/*, format: Date.FormatStyle(date: .numeric, time: .standard)*/)")
+                            .font(.title)
+                            .padding()
+                        Text("Цена: \(product.price)")
+                        Text("В наличии \(product.quantity) шт.")
+                    } label: {
+                        Text(product.title)
+                    }
+                }
+                .onDelete(perform: deleteItems)
+            }
+            .task { productViewModel.fetchProducts() }
+            /*List {
                 ForEach(products, id: \.title) { item in
 
                     NavigationLink {
@@ -40,7 +55,7 @@ struct ContentView: View {
             }
             .task {
                 await fetchData()
-            }
+            }*/
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     EditButton()
@@ -54,17 +69,7 @@ struct ContentView: View {
         } detail: {
             Text("Select an item")
         }
-        .onAppear{
-            
-            // Получаем данные из API
-//            http://192.168.68.105:8000/students?course=2&major=Биология
-//            let url = URL(string: "http://192.168.68.105:8000/students")!
-//            let task = URLSession.shared.dataTask(with: url) { (data: Data?, response: URLResponse?, error: Error?) -> Void in
-//                // Parse the data in the response and use it
-//            }
-//            task.resume()
-//            print(task.response)
-        }
+
     }
     
     func fetchData() async {
@@ -91,6 +96,7 @@ struct ContentView: View {
             
             // todo: реализовать PUT запрос к API
             products.append(newItem)
+            productViewModel.products.append(newItem)
         }
     }
 
@@ -101,6 +107,7 @@ struct ContentView: View {
                 
                 // todo: реализовать DELETE запрос к API
                 products.remove(at: index)
+                productViewModel.products.remove(at: index)
             }
         }
     }
