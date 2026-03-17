@@ -13,18 +13,20 @@ import Foundation
 
 struct ContentView: View {
     @StateObject private var productViewModel = ProductViewModel()  // Вариант с менеджером fetch
-    @State private var products = [Product]()   // вариант с встроенным fetch
+    //@State private var products = [Product]()   // вариант с встроенным fetch
     
-//    @Environment(\.modelContext) private var modelContext
-//    @Query private var items: [Item]
+    @Environment(\.modelContext) private var modelContext
+    @Query private var products: [Item]
+    
     private var students: [Student]?
+//    var action: () async -> Void
 
     var body: some View {
         
         
         NavigationSplitView {
             List {
-                ForEach(productViewModel.products, id: \.title) { product in
+                ForEach(/*productViewModel.*/products, id: \.title) { product in
                     NavigationLink {
                         Text("\(product.title/*, format: Date.FormatStyle(date: .numeric, time: .standard)*/)")
                             .font(.title)
@@ -37,7 +39,18 @@ struct ContentView: View {
                 }
                 .onDelete(perform: deleteItems)
             }
-            .task { productViewModel.fetchProducts() }
+            .refreshable {
+                getItems()
+                print("Event: refresh")
+            }
+            .task {
+                do {
+                    try await getItems()
+                } catch {
+                    print("error task")
+                }
+                print("Event: task")
+            }
             /*List {
                 ForEach(products, id: \.title) { item in
 
@@ -61,10 +74,17 @@ struct ContentView: View {
                     EditButton()
                 }
                 ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                    Button(action: getItems) {
+                        Label("Обновить", systemImage: "arrow.trianglehead.2.clockwise")
                     }
                 }
+                ToolbarItem {
+                    AsyncButton(action: productViewModel.addItemSample) {
+                        Label("Добавить", systemImage: "plus")
+                    }
+                }
+
+                
             }
         } detail: {
             Text("Select an item")
@@ -72,7 +92,14 @@ struct ContentView: View {
 
     }
     
-    func fetchData() async {
+    func fetchData() async { // <2>
+        // Simulate a network request
+        try? await Task.sleep(nanoseconds: 2 * 1_000_000_000)
+        print("Data fetched")
+    }
+    
+    /* вариант реализации встроенного fetch
+     func fetchData() async {
         guard let url = URL(string: "http://192.168.68.105:8000/products") else {
             print("URL не валидный!")
             return
@@ -87,29 +114,53 @@ struct ContentView: View {
         } catch {
             print("These data are not valid")
         }
-    }
+    }*/
     
-    private func addItem() {
+    private func getItems() {
         withAnimation {
-            let newItem = Product(title: "Decathlon Shirt \n\(Date().formatted(Date.FormatStyle(time: .standard)))", price: 199.99, quantity: 5)
-//            modelContext.insert(newItem)
             
-            // todo: реализовать PUT запрос к API
-            products.append(newItem)
-            productViewModel.products.append(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-//                modelContext.delete(items[index])
-                
-                // todo: реализовать DELETE запрос к API
-                products.remove(at: index)
-                productViewModel.products.remove(at: index)
+            // Получаем данные из API
+            productViewModel.fetchProducts()
+            
+            // Очищаем список в БД
+            for product in products {
+                modelContext.delete(product)
+            }
+            // Заполняем список в БД заново
+            for product in productViewModel.products {
+                modelContext.insert(Item(id: product.id, title: product.title, price: product.price, quantity: product.quantity))
             }
         }
+    }
+    
+    @MainActor
+    private func addItem() async -> Void {
+//        withAnimation {
+        let newItem = Product(id: nil, title: "Decathlon Shirt \n\(Date().formatted(Date.FormatStyle(time: .standard)))", price: 199.99, quantity: 5)
+        //            modelContext.insert(newItem)
+        
+        // todo: реализовать PUT запрос к API
+        try? await productViewModel.sendDataAsync(for: newItem)
+        //            products.append(newItem)
+        //productViewModel.products.append(newItem)
+        modelContext.insert(Item(id: newItem.id, title: newItem.title, price: newItem.price, quantity: newItem.quantity))
+//        }
+    }
+
+    private func deleteItems(offsets: IndexSet)   {
+//        withAnimation {
+            for index in offsets {
+                modelContext.delete(products[index])
+                productViewModel.products.remove(at: index)
+                Task {
+                    productViewModel.deleteItem(for: String(products[index].id!))
+                    
+                }
+            }
+        
+            
+
+//        }
     }
 }
 
@@ -129,7 +180,7 @@ final class NetworkManager {
             
             guard let httpResponse = response as? HTTPURLResponse,
                   (200...299).contains(httpResponse.statusCode) else {
-                print("Error with the response, unexpected status code: \(response)")
+                print("Error with the response, unexpected status code: \(String(describing: response))")
                 return
             }
             
