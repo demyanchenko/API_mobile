@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 
 @Model
-final class Item {
+final class ProductModel {
     var id:String?
     var title:String
     var price:Double

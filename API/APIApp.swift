@@ -12,7 +12,7 @@ import SwiftData
 struct APIApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            ProductModel.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
 
@@ -23,10 +23,27 @@ struct APIApp: App {
         }
     }()
 
+    let container = try! ModelContainer(for: ProductModel.self) // создание бд на устройстве с таблицей Продукт
+    let productLoader = ProductLoader() // загрузчик модели Продукт
+    let dataImporter : DataImporter // импортёр данных
+    
+    init() {
+        self.dataImporter = DataImporter(context: container.mainContext, productLoader: productLoader)
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .task {
+                    // задача на загрузку данных из АПИ с последующей записью в БД
+                    do {
+                        // let dataImporter = DataImporter(context: container.mainContext, productLoader: productLoader)
+                        try await dataImporter.importData()
+                    } catch {
+                        print(error)
+                    }
+                }
         }
-        .modelContainer(sharedModelContainer)
+        .modelContainer(container)
     }
 }

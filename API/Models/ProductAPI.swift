@@ -11,11 +11,60 @@ import Foundation
 import Combine
 import SwiftData
 
-struct Product: Codable {
+
+struct ProductAPI {
     var id:String?
     var title:String
     var price:Double
     var quantity:Int
+    
+    init(id: String?, title: String, price: Double, quantity: Int) {
+        self.id = id
+        self.title = title
+        self.price = price
+        self.quantity = quantity
+    }
+}
+
+extension ProductAPI: Codable {
+//    var id:String?
+//    var title:String
+//    var price:Double
+//    var quantity:Int
+    enum CodingKeys: String, CodingKey {
+        case id, title, price, quantity
+        //        case id = "question_id"
+    }
+}
+
+// Менеджер по работе с АПИ
+struct ProductLoader {
+    let host = "http://localhost:8000"
+    
+    
+    // Загрузка Продуктов из АПИ
+    // возвращает массив продуктов
+    func loadProduct() async throws -> [ProductAPI] {
+        let url = host + "/products"
+        guard let url = URL(string: url) else { return []}
+        print(url)
+
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        guard let response = response as? HTTPURLResponse else {
+            throw APIError.server
+        }
+         
+        switch response.statusCode {
+        case 400 ..< 500: print("error \(response.statusCode): \(response.url), \(response.allHeaderFields)") //throw APIError.client
+            case 500 ..< 600: print("error \(response.statusCode): \(response.url), \(response.allHeaderFields)") //throw APIError.server
+            default: break
+        }
+
+        let products = try JSONDecoder().decode([ProductAPI].self, from: data)
+        
+        return products
+    }
 }
 
 /*
@@ -31,7 +80,7 @@ struct Product: Codable {
  */
 
 struct APIPutResponse: Codable {
-    var data: Product
+    var data: ProductAPI
     var message: String
 }
 
@@ -59,8 +108,8 @@ enum APIError: Error, LocalizedError {
 }
 
 class ProductViewModel: ObservableObject {
-    @Published var products = [Product]()
-    @Published var newItem = [Product]()
+    @Published var products = [ProductAPI]()
+    @Published var newItem = [ProductAPI]()
 //    let host = "http://192.168.68.104:8000"
     let host = "http://localhost:8000"
 //    let url = host + "/products"
@@ -71,7 +120,7 @@ class ProductViewModel: ObservableObject {
     // статья про работу uploadData в запросе POST
     // https://www.tutorialpedia.org/blog/nsurlsession-post-difference-between-uploadtask-and-datatask/
     func addItemSample() async {
-        let newItem = Product(id: nil, title: "Decathlon Shirt \n\(Date().formatted(Date.FormatStyle(time: .standard)))", price: 199.99, quantity: 5)
+        let newItem = ProductAPI(id: nil, title: "Decathlon Shirt \n\(Date().formatted(Date.FormatStyle(time: .standard)))", price: 199.99, quantity: 5)
         let url = host + "/product"
         guard let url = URL(string: url) else { return }
         var request = URLRequest(url: url)
@@ -158,7 +207,7 @@ class ProductViewModel: ObservableObject {
                 
                 if let data = data { //message, data in
                     
-                    if let decodedResponse = try? JSONDecoder().decode(Product.self, from: data) {
+                    if let decodedResponse = try? JSONDecoder().decode(ProductAPI.self, from: data) {
                         print("Продукт успешно удалён (id): " + decodedResponse.id!)
                         
                     }
@@ -177,7 +226,7 @@ class ProductViewModel: ObservableObject {
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             
-            if let decodedResponse = try? JSONDecoder().decode([Product].self, from: data) {
+            if let decodedResponse = try? JSONDecoder().decode([ProductAPI].self, from: data) {
                 products = decodedResponse
             }
         } catch {
@@ -207,7 +256,7 @@ class ProductViewModel: ObservableObject {
             
             if let data = data {
                 let decoder = JSONDecoder()
-                if let decodedResponse = try? decoder.decode([Product].self, from: data) {
+                if let decodedResponse = try? decoder.decode([ProductAPI].self, from: data) {
                     DispatchQueue.main.async {
                         self.products = decodedResponse
                     }
@@ -218,7 +267,7 @@ class ProductViewModel: ObservableObject {
     
     
     // PUT - отправка данных
-    func sendDataAsync(for product: Product/*, withAccessToken token: String*/) async throws {
+    func sendDataAsync(for product: ProductAPI/*, withAccessToken token: String*/) async throws {
         let urlPath = host + "/product"
 //        let url = URL(string: urlPath)!
         guard let url = URL(string: urlPath) else { return }
@@ -277,7 +326,7 @@ class ProductViewModel: ObservableObject {
         
     }*/
     
-    func handleAPIResponse() async throws -> Product {
+    func handleAPIResponse() async throws -> ProductAPI {
         let url = URL(string: "http://192.168.68.104:8000/product")!
         let (data, response) = try await URLSession.shared.data(from: url)
         guard let response = response as? HTTPURLResponse else {
@@ -288,7 +337,7 @@ class ProductViewModel: ObservableObject {
             case 500 ..< 600: throw APIError.server
             default: break
         }
-        return try JSONDecoder().decode(Product.self, from: data)
+        return try JSONDecoder().decode(ProductAPI.self, from: data)
     }
     
 }

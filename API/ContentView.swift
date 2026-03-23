@@ -6,6 +6,9 @@
 //
 // Статья по работе с АПИ:
 // https://proglib.io/p/setevye-zaprosy-i-rest-api-v-ios-i-swift-protokolno-orientirovannoe-programmirovanie-chast-1-2023-03-02
+//
+// Статья по matchedGeometryEffect
+// https://www.codestudy.net/blog/use-match-geometry-effect-when-navigating-between-views-using-a-navigation-link/
 
 import SwiftUI
 import SwiftData
@@ -14,60 +17,47 @@ import Foundation
 struct ContentView: View {
     @StateObject private var productViewModel = ProductViewModel()  // Вариант с менеджером fetch
     //@State private var products = [Product]()   // вариант с встроенным fetch
-    
+    @State private var actionItemAdd : Bool = false
     @Environment(\.modelContext) private var modelContext
-    @Query private var products: [Item]
+    @Query(sort: \ProductModel.title) private var products: [ProductModel]
     
     private var students: [Student]?
 //    var action: () async -> Void
+//    @Namespace var namespace
 
     var body: some View {
         
-        
-        NavigationSplitView {
+//        NavigationSplitView {
+        NavigationStack {
+//        NavigationView {
+            
+            
             List {
                 ForEach(/*productViewModel.*/products, id: \.title) { product in
-                    NavigationLink {
-                        Text("\(product.title/*, format: Date.FormatStyle(date: .numeric, time: .standard)*/)")
-                            .font(.title)
-                            .padding()
-                        Text("Цена: \(product.price)")
-                        Text("В наличии \(product.quantity) шт.")
-                    } label: {
+                    NavigationLink /*(value: product)*/ {
+                        withAnimation(.easeInOut) { ItemDetailView(product: product/*, namespace: namespace*/)
+                        }
+                     } label: {
                         Text(product.title)
+//                             .matchedGeometryEffect(id: "title_\(product.id)", in: namespace)
                     }
                 }
                 .onDelete(perform: deleteItems)
+//                .navigationDestination(for: Item.self) { product in
+//                    ItemDetailView(product: product)
+//                }
             }
             .refreshable {
                 getItems()
                 print("Event: refresh")
             }
-            .task {
+            /*.task {
                 do {
                     try await getItems()
                 } catch {
                     print("error task")
                 }
                 print("Event: task")
-            }
-            /*List {
-                ForEach(products, id: \.title) { item in
-
-                    NavigationLink {
-                        Text("\(item.title/*, format: Date.FormatStyle(date: .numeric, time: .standard)*/)")
-                            .font(.title)
-                            .padding()
-                        Text("Цена: \(item.price)")
-                        Text("В наличии \(item.quantity) шт.")
-                    } label: {
-                        Text(item.title)
-                    }
-                }
-                .onDelete(perform: deleteItems)
-            }
-            .task {
-                await fetchData()
             }*/
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -78,18 +68,41 @@ struct ContentView: View {
                         Label("Обновить", systemImage: "arrow.trianglehead.2.clockwise")
                     }
                 }
-                ToolbarItem {
-                    AsyncButton(action: productViewModel.addItemSample) {
-                        Label("Добавить", systemImage: "plus")
+                
+                ToolbarItemGroup(placement: .bottomBar) {
+                    Spacer()
+                    Button (action: {
+                        withAnimation{
+                            actionItemAdd = true
+                        }
+                    }, label: {
+                        Image(systemName: "plus")
+//                            .matchedGeometryEffect(id: "image_plus", in: namespace)
+                    })
+                    .sheet(isPresented: $actionItemAdd) {
+                        // объявляем новый NavigationView, без которого
+                        // NavigationLink на View3_2 работать не будет
+                        NavigationView {
+                            ItemAddView()
+                        }.presentationDetents([.height(350)])
+                            .transition(.move(edge: .bottom))
+                            
                     }
+                    /*NavigationLink {
+                        ItemAddView().transition(.move(edge: .bottom))
+                        //                            .animation(.bottom)
+                    } label: {
+                        Label("Добавить", systemImage: "plus")
+                    }*/
                 }
-
                 
             }
-        } detail: {
-            Text("Select an item")
-        }
-
+            
+        } /*detail: {
+            // Правый экран, где отобразятся детали при выборе пункта (для iPad и Mac)
+            Text("Выберите продукт")
+        }*/
+        
     }
     
     func fetchData() async { // <2>
@@ -128,7 +141,7 @@ struct ContentView: View {
             }
             // Заполняем список в БД заново
             for product in productViewModel.products {
-                modelContext.insert(Item(id: product.id, title: product.title, price: product.price, quantity: product.quantity))
+                modelContext.insert(ProductModel(id: product.id, title: product.title, price: product.price, quantity: product.quantity))
             }
         }
     }
@@ -136,14 +149,14 @@ struct ContentView: View {
     @MainActor
     private func addItem() async -> Void {
 //        withAnimation {
-        let newItem = Product(id: nil, title: "Decathlon Shirt \n\(Date().formatted(Date.FormatStyle(time: .standard)))", price: 199.99, quantity: 5)
+        let newItem = ProductAPI(id: nil, title: "Decathlon Shirt \n\(Date().formatted(Date.FormatStyle(time: .standard)))", price: 199.99, quantity: 5)
         //            modelContext.insert(newItem)
         
         // todo: реализовать PUT запрос к API
         try? await productViewModel.sendDataAsync(for: newItem)
         //            products.append(newItem)
         //productViewModel.products.append(newItem)
-        modelContext.insert(Item(id: newItem.id, title: newItem.title, price: newItem.price, quantity: newItem.quantity))
+        modelContext.insert(ProductModel(id: newItem.id, title: newItem.title, price: newItem.price, quantity: newItem.quantity))
 //        }
     }
 
@@ -196,5 +209,5 @@ final class NetworkManager {
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .modelContainer(for: ProductModel.self, inMemory: true)
 }
