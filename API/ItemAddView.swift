@@ -57,24 +57,22 @@ struct ItemAddView: View {
             
             // Кнопка "Закрыть"
             ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: {
+                Button("Закрыть", systemImage: "xmark", role: .cancel) {
 //                    actionItemAdd = false
                     dismiss()
-                }) {
-                    Image(systemName: "xmark")
                 }
             }
             
             // Кнопка "Сохранить"
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
+                Button("Сохранить", systemImage: "checkmark", role: .confirm) {
+//                    actionItemAdd = false
                     Task {
                             try await addItem()
                     }
-                }) {
-                    Text("Сохранить")
                 }
             }
+            
         }
         //.matchedGeometryEffect(id: "image_plus", in: namespace)
     }
@@ -121,8 +119,9 @@ struct TextFieldView: View {
             .keyboardType(keyboardType)
             .submitLabel(.done)
         }
-        .background(.mint)
-        .cornerRadius(12)
+//        .background(.mint)
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(.gray, lineWidth: 1) )
+//        .cornerRadius(12)
         .padding(.horizontal)
         .padding(.vertical, 4)
     }
